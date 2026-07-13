@@ -1,0 +1,9 @@
+python-telegram-bot[job-queue]>=21.6
+pandas>=2.2.2
+numpy>=1.26.4
+mplfinance>=0.12.10b0
+matplotlib>=3.9.0
+python-dotenv>=1.0.1
+pytz>=2024.1
+requests>=2.32.3
+fyers-apiv3>=3.1.5
