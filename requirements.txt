@@ -5,5 +5,5 @@ mplfinance>=0.12.10b0
 matplotlib>=3.9.0
 python-dotenv>=1.0.1
 pytz>=2024.1
-requests>=2.32.3
+requests==2.31.0
 fyers-apiv3>=3.1.5
