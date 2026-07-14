@@ -18,7 +18,7 @@ import pandas as pd
 import pytz
 import requests
 from dotenv import load_dotenv
-from telegram import Bot, InputFile
+from telegram import Bot, InputFile, ReplyParameters
 from telegram.constants import ParseMode
 from telegram.ext import Application, ApplicationBuilder, ContextTypes
 
@@ -567,145 +567,125 @@ def brand_signature() -> str:
 
 def good_morning_message() -> str:
     return (
-        "🌞 <b>GOOD MORNING TRADERS!</b> 🌞\n\n"
-        "🦅 <b>JIGA BHAI GUJARATI TRADER DESK IS LIVE</b> 🦅\n\n"
-        "Aaj market me random entry nahi, sirf <b>premium sniper setup</b> ka wait hoga. "
-        "Capital bachana hai, compounding banana hai aur low-quality 1:1 trades ko avoid karna hai.\n\n"
-        "🔥 <b>Today's Focus:</b> Momentum + Price Action + High RRR\n"
-        "🎯 <b>Rule:</b> Minimum 1:3 RRR only\n"
-        "⚔️ <b>Mindset:</b> No fear, no greed, only discipline\n\n"
-        "Market khulega, patience rakho. Best setup aayega to Jiga Bhai signal dega. 🚀"
+        "🌞 <b>GOOD MORNING TRADERS</b> 🌞\n\n"
+        "🦅 <b>JIGA BHAI DESK LIVE</b> 🦅\n\n"
+        "Aaj sirf premium setup. No random entry.\n"
+        "🎯 Focus: Breakout + Volume + 1:3 RRR\n"
+        "⚔️ Rule: Patience first, execution fast.\n\n"
+        "🔔 Channel active rakho. Move miss hua to entry miss."
         + brand_signature()
     )
 
 
 def ready_alert_message() -> str:
     return (
-        "⚡️ <b>MARKET READY ALERT</b> ⚡️\n\n"
-        "9:15 ke baad scanner active hoga. Phone side me mat rakho. "
-        "Aaj sirf clean breakout, strong volume aur high RRR setup hi milega.\n\n"
-        "🛡 <b>Risk fixed</b>\n"
-        "🎯 <b>Targets aggressive</b>\n"
-        "🦅 <b>Execution premium</b>\n\n"
-        "Ready raho traders, aaj ka sniper move kabhi bhi aa sakta hai! 🚀"
+        "⚡️ <b>READY ALERT</b> ⚡️\n\n"
+        "9:15 ke baad scanner active.\n"
+        "📊 Only clean setup.\n"
+        "🎯 Target aggressive.\n"
+        "🛡 SL strict.\n\n"
+        "Phone side me mat rakhna. Sniper move kabhi bhi aa sakta hai 🚀"
         + brand_signature()
     )
-
 
 
 def next_trading_day_label() -> str:
     now = datetime.now(IST)
     wd = now.weekday()
-    if wd == 4:  # Friday night -> Monday plan
+    if wd == 4:
         nxt = now + timedelta(days=3)
-    elif wd == 5:  # Saturday -> Monday
+    elif wd == 5:
         nxt = now + timedelta(days=2)
     else:
         nxt = now + timedelta(days=1)
-    return nxt.strftime("%A, %d %b")
+    return nxt.strftime("%d %b")
 
 
 def next_day_plan_message(level_rows: List[Dict[str, Any]], vip_link: str) -> str:
     rows_text = []
     for row in level_rows:
         rows_text.append(
-            f"📌 <b>{escape(row['name'])}</b>\n"
-            f"• Key Resistance: <b>{fmt(row['resistance'])}</b>\n"
-            f"• Key Support: <b>{fmt(row['support'])}</b>\n"
-            f"• Breakout Zone: <b>{fmt(row['breakout'])}+</b>\n"
-            f"• Breakdown Zone: <b>{fmt(row['breakdown'])}-</b>\n"
-            f"• Expected Move Range: <b>{fmt(row['expected_move'])} pts</b>"
+            f"🚩 <b>{escape(row['name'])}</b>\n"
+            f"R 🔸 <b>{fmt(row['resistance'])}</b> | S 🔸 <b>{fmt(row['support'])}</b>\n"
+            f"BO 🔸 <b>{fmt(row['breakout'])}+</b> | BD 🔸 <b>{fmt(row['breakdown'])}-</b>"
         )
 
-    levels = "\n\n".join(rows_text) if rows_text else "Levels data unavailable. Fresh levels will be tracked live tomorrow."
+    levels = "\n\n".join(rows_text) if rows_text else "Fresh levels live market me update honge."
 
     return (
-        f"🌙 <b>NEXT DAY ADVANCE MARKET PLAN</b> 🌙\n"
-        f"📅 <b>For:</b> {escape(next_trading_day_label())}\n\n"
-        "🦅 <b>JIGA BHAI TRADER DESK VIEW</b> 🦅\n\n"
-        "Kal market me random entry nahi leni. Pehle levels, phir breakout confirmation, phir execution. "
-        "Free channel par sirf selected high-RRR setups milenge, isliye notifications ON rakho.\n\n"
+        f"🌙 <b>NEXT DAY PLAN - {escape(next_trading_day_label())}</b> 🌙\n\n"
         f"{levels}\n\n"
-        "🎯 <b>Tomorrow Game Plan:</b>\n"
-        "⚡️ First 15 min me fake move se bachna hai\n"
-        "⚡️ Volume + breakout candle confirm hone ke baad hi entry\n"
-        "⚡️ 1:1 / 1:2 traps avoid, minimum 1:3 RRR focus\n"
-        "⚡️ One clean sniper trade can change the full day\n\n"
-        "🔥 <b>IMPORTANT REMINDER:</b>\n"
-        "Channel mute mat rakhna. Premium setups fast move karte hain, late entry profit ko risk me badal deti hai. "
-        "Jo active rahega wahi execution pakdega.\n\n"
-        "👑 <b>VIP DESK ADVANTAGE:</b>\n"
-        "VIP me Jiga Bhai live hand-holding, exact entry/exit, trailing support aur priority levels deta hai. "
-        "Free channel limited hai; serious compounding ke liye VIP plan follow karo.\n\n"
-        f"💎 <b>VIP ACCESS:</b> {escape(vip_link)}\n\n"
-        "⚠️ <i>Plan educational hai. Final trade live price action confirmation ke baad hi valid hota hai. Market risk applies.</i>"
+        "🎯 <b>PLAN:</b> First 15 min wait. Breakout + volume confirm, then entry.\n"
+        "🛡 No 1:1 trap. Only high RRR.\n\n"
+        "🔥 Active raho. Free channel limited hai. VIP me live hand-holding + priority levels.\n\n"
+        f"👑 <b>VIP:</b> {escape(vip_link)}"
         + brand_signature()
     )
+
+
+def _trade_header(name: str) -> str:
+    return f"🚩 <b>{escape(name)} - {datetime.now(IST).strftime('%d %b').upper()}</b>"
+
 
 def live_call(signal: Signal) -> str:
     t = signal.targets
     return (
-        f"🦅 <b>[PREMIUM SETUP] {escape(signal.display_name)}</b> 🦅\n\n"
-        f"📊 <b>Instrument:</b> {escape(signal.display_name)}\n"
-        f"🎯 <b>Smart Entry:</b> <b>{fmt(signal.entry)}</b>\n"
-        f"📈 <b>Momentum Targets:</b> {fmt(t[0])} (1:3) | {fmt(t[1])} (1:4) | {fmt(t[2])}+ (JACKPOT)\n"
-        f"🛡 <b>Strict SL:</b> {fmt(signal.stop_loss)} ({fmt(signal.risk_points)} pts Risk - No Emotions)\n\n"
-        "🔍 <i>Chart indicates a powerful momentum breakout. High RRR setup activated.</i>"
+        f"{_trade_header(signal.display_name)}\n\n"
+        f"PLAN ABOVE 🔸 <b>{fmt(signal.entry)}</b>\n\n"
+        f"Target 🔸 <b>{fmt(t[0])}</b> 🚩<b>{fmt(t[1])}</b> 🚩<b>{fmt(t[2])}</b>\n\n"
+        f"SL 🔸 <b>{fmt(signal.stop_loss)}</b>  PREMIUM 📊✅✅📊\n\n"
+        f"Inquiry for VIP :- {escape(env('VIP_LINK', 'https://jigabhaivip.com'))}"
         + brand_signature()
     )
 
 
 def point_update_message(trade: Trade, ltp: float, points: float) -> str:
     return (
-        f"🦅 <b>[PREMIUM SETUP] {escape(trade.display_name)}</b> 🦅\n\n"
-        f"📊 <b>Instrument:</b> {escape(trade.display_name)}\n"
-        f"🎯 <b>Smart Entry:</b> <b>{fmt(trade.entry)}</b>\n"
-        f"📈 <b>Momentum Targets:</b> {fmt(trade.targets[0])} (1:3) | {fmt(trade.targets[1])} (1:4) | {fmt(trade.targets[2])}+ (JACKPOT)\n"
-        f"🛡 <b>Strict SL:</b> {fmt(trade.stop_loss)} ({fmt(trade.risk_points)} pts Risk - No Emotions)\n\n"
-        f"🚀 <b>LIVE UPDATE: {fmt(trade.entry)} ➡️ {fmt(ltp)} (+{fmt(points)} pts running)</b>\n"
-        "🔥 <i>Perfect execution! Trend strong hai. Safe traders partial book/trail discipline follow karein.</i>"
+        f"🐂 <b>{escape(trade.display_name)} - {datetime.now(IST).strftime('%d %b').upper()}</b> 🐂\n\n"
+        f"↗️ Range..  <b>{fmt(trade.entry)} TO {fmt(ltp)}</b> 🚀🚀\n"
+        f"✅ Running: <b>+{fmt(points)} pts</b>"
         + brand_signature()
     )
 
 
 def target_hit_caption(trade: Trade, target_no: int, ltp: float) -> str:
     return (
-        f"🎯 <b>TARGET {target_no} HIT - ENJOY PROFITS!</b> 🎯\n\n"
-        f"🦅 <b>{escape(trade.display_name)}</b> ne premium move diya!\n"
-        f"Entry: <b>{fmt(trade.entry)}</b> ➡️ CMP: <b>{fmt(ltp)}</b>\n\n"
-        "💰 <b>Safe traders book profits NOW.</b>\n"
-        "🔥 Trend strong ho to remaining quantity trail karo. Discipline is money!"
+        f"🎯 <b>TARGET {target_no} HIT</b> 🎯\n\n"
+        f"🐂 <b>{escape(trade.display_name)}</b>\n"
+        f"Range.. <b>{fmt(trade.entry)} TO {fmt(ltp)}</b> 🚀\n\n"
+        "💰 Book profit. Trail remaining."
         + brand_signature()
     )
 
 
 def closed_message(trade: Trade, ltp: float, reason: str) -> str:
     return (
-        f"✅ <b>TRADE CLOSED - {escape(trade.display_name)}</b> ✅\n\n"
-        f"🎯 Entry: <b>{fmt(trade.entry)}</b>\n"
-        f"📍 Exit/CMP: <b>{fmt(ltp)}</b>\n"
-        f"🛡 SL: <b>{fmt(trade.stop_loss)}</b>\n"
-        f"📈 Targets: {fmt(trade.targets[0])} | {fmt(trade.targets[1])} | {fmt(trade.targets[2])}\n\n"
-        f"📌 <b>Result:</b> {escape(reason)}\n\n"
-        "🦅 Next high-quality setup ka wait. No overtrading."
+        f"✅ <b>TRADE CLOSED</b> ✅\n\n"
+        f"🚩 <b>{escape(trade.display_name)}</b>\n"
+        f"Entry 🔸 <b>{fmt(trade.entry)}</b>\n"
+        f"Exit 🔸 <b>{fmt(ltp)}</b>\n"
+        f"Result 🔸 <b>{escape(reason)}</b>\n\n"
+        "Next sniper setup ka wait."
         + brand_signature()
     )
 
 
 def vip_promo(vip_link: str) -> str:
     return (
-        "🛑 <b>KAB TAK DUSRO KE PROFIT SCREENSHOTS DEKHTE RAHOGE?</b> 🛑\n\n"
-        "Free channel me hum sirf limited setups dete hain, par asli compounding VIP me chal rahi hai! "
-        "Hamara VIP system strictly small capital compounding (the 1,00,000 to 50,00,000 blueprint) par focused hai. "
-        "No random trades, only high-accuracy sniper entries. 1:3,4,5,6, unlimited.\n\n"
-        "Agar market me sach me paisa banana hai aur account blow nahi karna hai, toh 1:1 wale trades chodo aur high RRR system follow karo.\n\n"
-        "👑 <b>WHAT YOU GET IN VIP:</b>\n"
-        "⚡️ 3-5 Prime Setups Daily (Minimum 1:3 RRR)\n"
-        "⚡️ Exact Entry, Exit &amp; Live Trailing Support\n"
-        "⚡️ Full Hand-Holding Mentorship\n\n"
-        f"💎 <b>UPGRADE TO VIP NOW:</b> {escape(vip_link)}\n"
-        "⏳ <i>WARNING: Only 10 seats left for today's batch. Time is money, act fast!</i>\n\n"
-        "⚠️ <i>Market risk applies. Past performance does not guarantee future returns.</i>"
+        "🔥 <b>BIGGEST DISCOUNT IN VIP CHANNEL</b> 🔥🔥\n\n"
+        "🎁 <b>Rs 8000/-</b> 01 Month - Basic Strike\n"
+        "🎁 <b>Rs 15000/-</b> 01 Month - Pro Hunter\n"
+        "🎁 <b>Rs 28000/-</b> 01 Month - Elite Sniper\n"
+        "🎁 <b>Rs 50000/-</b> 01 Month - Inner Circle\n\n"
+        f"More details For VIP ----> {escape(vip_link)}\n\n"
+        "✅ Banknifty Calls | Nifty Calls | Stock Calls\n"
+        "✅ Minimum Capital: 10k-50k\n"
+        "✅ Daily 4-5 Prime Setups\n"
+        "✅ Target/SL + Live Guidance\n"
+        "✅ Full Support + Hand-Holding\n\n"
+        "⚠️ Profit guaranteed nahi hota. Discipline + risk management zaroori hai.\n\n"
+        "👇👇👇\n"
+        "DM NOW 👉 ON WHATSAPP NOW 👈"
         + brand_signature()
     )
 
@@ -1044,6 +1024,7 @@ class TradeManager:
                         text=point_update_message(trade, ltp, profit_points),
                         parse_mode=ParseMode.HTML,
                         disable_web_page_preview=True,
+                        reply_parameters=ReplyParameters(message_id=trade.telegram_message_id),
                     )
                     trade.last_update_price = milestone_price
 
@@ -1066,12 +1047,14 @@ class TradeManager:
                                     photo=InputFile(chart_path),
                                     caption=target_hit_caption(trade, target_no, ltp),
                                     parse_mode=ParseMode.HTML,
+                                    reply_parameters=ReplyParameters(message_id=trade.telegram_message_id),
                                 )
                             else:
                                 await context.bot.send_message(
                                     chat_id=self.settings.telegram_chat_id,
                                     text=target_hit_caption(trade, target_no, ltp),
                                     parse_mode=ParseMode.HTML,
+                                    reply_parameters=ReplyParameters(message_id=trade.telegram_message_id),
                                 )
                         except Exception as exc:
                             log.warning("Target chart/message failed: %s", exc)
@@ -1079,12 +1062,14 @@ class TradeManager:
                                 chat_id=self.settings.telegram_chat_id,
                                 text=target_hit_caption(trade, target_no, ltp),
                                 parse_mode=ParseMode.HTML,
+                                reply_parameters=ReplyParameters(message_id=trade.telegram_message_id),
                             )
                     else:
                         await context.bot.send_message(
                             chat_id=self.settings.telegram_chat_id,
                             text=target_hit_caption(trade, target_no, ltp),
                             parse_mode=ParseMode.HTML,
+                            reply_parameters=ReplyParameters(message_id=trade.telegram_message_id),
                         )
                     trade.chart_sent_targets.append(target_no)
 
@@ -1102,6 +1087,7 @@ class TradeManager:
                     text=closed_message(trade, ltp, close_reason),
                     parse_mode=ParseMode.HTML,
                     disable_web_page_preview=True,
+                    reply_parameters=ReplyParameters(message_id=trade.telegram_message_id),
                 )
                 context.job_queue.run_once(
                     self.vip_job,
