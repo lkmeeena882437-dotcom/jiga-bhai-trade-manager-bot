@@ -34,6 +34,10 @@ logging.basicConfig(
 log = logging.getLogger("tradebot")
 
 
+# =========================
+# ENV HELPERS
+# =========================
+
 def env(name: str, default: str = "") -> str:
     raw = os.getenv(name)
     if raw is None or not raw.strip():
@@ -57,6 +61,10 @@ def env_csv(name: str, default: str = "") -> List[str]:
     return [x.strip() for x in env(name, default).split(",") if x.strip()]
 
 
+# =========================
+# CONFIG
+# =========================
+
 @dataclass(frozen=True)
 class Settings:
     telegram_bot_token: str = env("TELEGRAM_BOT_TOKEN", "")
@@ -75,6 +83,8 @@ class Settings:
         "NIFTY 50 OPTIONS,BANKNIFTY OPTIONS"
     ))
 
+    # Auto ATM option mode. If enabled, bot calculates ATM strike from underlying quote
+    # and builds CE/PE symbols with OPTION_SYMBOL_TEMPLATE.
     auto_atm_enabled: bool = env_bool("AUTO_ATM_ENABLED", False)
     underlying_symbols: List[str] = field(default_factory=lambda: env_csv(
         "UNDERLYING_SYMBOLS",
@@ -149,6 +159,10 @@ class Settings:
             raise RuntimeError("AUTO_ATM_ENABLED=true requires OPTION_EXPIRIES. Example: 24JUL or 25724 as per Fyers symbol format.")
 
 
+# =========================
+# MODELS
+# =========================
+
 @dataclass
 class Quote:
     symbol: str
@@ -193,6 +207,10 @@ class Trade:
     promo_sent: bool = False
 
 
+# =========================
+# STATE
+# =========================
+
 class StateStore:
     def load(self) -> Dict[str, Trade]:
         if not STATE_FILE.exists():
@@ -201,6 +219,7 @@ class StateStore:
             data = json.loads(STATE_FILE.read_text())
             trades: Dict[str, Trade] = {}
             for tid, trade_data in data.get("trades", {}).items():
+                # Backward-compatible defaults if old state.json exists.
                 trade_data.setdefault("last_update_price", trade_data.get("entry", 0.0))
                 trade_data.setdefault("chart_sent_targets", [])
                 trades[tid] = Trade(**trade_data)
@@ -216,6 +235,10 @@ class StateStore:
     def active(self, trades: Dict[str, Trade]) -> List[Trade]:
         return [trade for trade in trades.values() if trade.status == "ACTIVE"]
 
+
+# =========================
+# BROKERS
+# =========================
 
 class Broker:
     def quotes(self, symbols: List[str]) -> Dict[str, Quote]:
@@ -313,6 +336,10 @@ def make_broker(settings: Settings) -> Broker:
         return FyersBroker(settings)
     return MockBroker()
 
+
+# =========================
+# TIMING + STRATEGY
+# =========================
 
 class DailyLimit:
     def __init__(self) -> None:
@@ -436,6 +463,10 @@ class Strategy:
         self.limit.symbols.add(signal.symbol)
 
 
+# =========================
+# AI FILTER
+# =========================
+
 class AITradeFilter:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -519,6 +550,10 @@ class AITradeFilter:
         return json.loads(content)
 
 
+# =========================
+# MESSAGES
+# =========================
+
 def fmt(x: float) -> str:
     if float(x).is_integer():
         return str(int(x))
@@ -526,6 +561,7 @@ def fmt(x: float) -> str:
 
 
 def brand_signature() -> str:
+    # Branding signature. Do not use this to misrepresent automation; it keeps posts channel-branded.
     return f"\n\n<b>— {escape(env('POST_AUTHOR_NAME', 'JIGA BHAI TRADER'))}</b>"
 
 
@@ -551,10 +587,60 @@ def ready_alert_message() -> str:
         "🛡 <b>Risk fixed</b>\n"
         "🎯 <b>Targets aggressive</b>\n"
         "🦅 <b>Execution premium</b>\n\n"
-        "Ready raho traders, aaj ka sniper move kabhi bhi aa sak hai! 🚀"
+        "Ready raho traders, aaj ka sniper move kabhi bhi aa sakta hai! 🚀"
         + brand_signature()
     )
 
+
+
+def next_trading_day_label() -> str:
+    now = datetime.now(IST)
+    wd = now.weekday()
+    if wd == 4:  # Friday night -> Monday plan
+        nxt = now + timedelta(days=3)
+    elif wd == 5:  # Saturday -> Monday
+        nxt = now + timedelta(days=2)
+    else:
+        nxt = now + timedelta(days=1)
+    return nxt.strftime("%A, %d %b")
+
+
+def next_day_plan_message(level_rows: List[Dict[str, Any]], vip_link: str) -> str:
+    rows_text = []
+    for row in level_rows:
+        rows_text.append(
+            f"📌 <b>{escape(row['name'])}</b>\n"
+            f"• Key Resistance: <b>{fmt(row['resistance'])}</b>\n"
+            f"• Key Support: <b>{fmt(row['support'])}</b>\n"
+            f"• Breakout Zone: <b>{fmt(row['breakout'])}+</b>\n"
+            f"• Breakdown Zone: <b>{fmt(row['breakdown'])}-</b>\n"
+            f"• Expected Move Range: <b>{fmt(row['expected_move'])} pts</b>"
+        )
+
+    levels = "\n\n".join(rows_text) if rows_text else "Levels data unavailable. Fresh levels will be tracked live tomorrow."
+
+    return (
+        f"🌙 <b>NEXT DAY ADVANCE MARKET PLAN</b> 🌙\n"
+        f"📅 <b>For:</b> {escape(next_trading_day_label())}\n\n"
+        "🦅 <b>JIGA BHAI TRADER DESK VIEW</b> 🦅\n\n"
+        "Kal market me random entry nahi leni. Pehle levels, phir breakout confirmation, phir execution. "
+        "Free channel par sirf selected high-RRR setups milenge, isliye notifications ON rakho.\n\n"
+        f"{levels}\n\n"
+        "🎯 <b>Tomorrow Game Plan:</b>\n"
+        "⚡️ First 15 min me fake move se bachna hai\n"
+        "⚡️ Volume + breakout candle confirm hone ke baad hi entry\n"
+        "⚡️ 1:1 / 1:2 traps avoid, minimum 1:3 RRR focus\n"
+        "⚡️ One clean sniper trade can change the full day\n\n"
+        "🔥 <b>IMPORTANT REMINDER:</b>\n"
+        "Channel mute mat rakhna. Premium setups fast move karte hain, late entry profit ko risk me badal deti hai. "
+        "Jo active rahega wahi execution pakdega.\n\n"
+        "👑 <b>VIP DESK ADVANTAGE:</b>\n"
+        "VIP me Jiga Bhai live hand-holding, exact entry/exit, trailing support aur priority levels deta hai. "
+        "Free channel limited hai; serious compounding ke liye VIP plan follow karo.\n\n"
+        f"💎 <b>VIP ACCESS:</b> {escape(vip_link)}\n\n"
+        "⚠️ <i>Plan educational hai. Final trade live price action confirmation ke baad hi valid hota hai. Market risk applies.</i>"
+        + brand_signature()
+    )
 
 def live_call(signal: Signal) -> str:
     t = signal.targets
@@ -624,6 +710,10 @@ def vip_promo(vip_link: str) -> str:
     )
 
 
+# =========================
+# WHITE CHART ON TARGET HIT
+# =========================
+
 def save_chart(df: pd.DataFrame, signal_or_trade: Signal | Trade, title_suffix: str = "Target Hit") -> Optional[str]:
     try:
         import mplfinance as mpf
@@ -681,6 +771,10 @@ def save_chart(df: pd.DataFrame, signal_or_trade: Signal | Trade, title_suffix: 
         return None
 
 
+# =========================
+# TELEGRAM TRADE MANAGER
+# =========================
+
 class TradeManager:
     def __init__(self, settings: Settings, broker: Broker) -> None:
         self.settings = settings
@@ -694,6 +788,13 @@ class TradeManager:
         return int(round(spot / step) * step)
 
     async def build_scan_candidates(self) -> List[Tuple[str, str]]:
+        """
+        Returns [(tradable_symbol, display_name)].
+        Manual mode uses SCAN_SYMBOLS. Auto ATM mode calculates ATM CE/PE from underlying LTP.
+        OPTION_SYMBOL_TEMPLATE placeholders:
+        {UNDERLYING}, {EXPIRY}, {STRIKE}, {TYPE}
+        Example output depends on your Fyers symbol format.
+        """
         if not self.settings.auto_atm_enabled:
             return [
                 (
@@ -745,6 +846,53 @@ class TradeManager:
         log.info("Auto ATM candidates prepared: %s candidates, first=%s", len(candidates), candidates[:5])
         return candidates
 
+    async def next_day_plan_job(self, context: ContextTypes.DEFAULT_TYPE) -> None:
+        # Post after-market advance plan at 10 PM IST. Skip Saturday night.
+        now = datetime.now(IST)
+        if now.weekday() == 5:
+            return
+
+        level_rows: List[Dict[str, Any]] = []
+        symbols = self.settings.underlying_symbols if self.settings.auto_atm_enabled else self.settings.scan_symbols
+        names = self.settings.underlying_names if self.settings.auto_atm_enabled else self.settings.display_names
+
+        for idx, symbol in enumerate(symbols[:2]):
+            name = names[idx] if idx < len(names) else symbol.replace("NSE:", "").replace("-INDEX", "")
+            try:
+                df = await asyncio.to_thread(self.broker.history, symbol, "D", 15)
+                if df.empty or len(df) < 3:
+                    df = await asyncio.to_thread(self.broker.history, symbol, "5", 5)
+                if df.empty or len(df) < 3:
+                    continue
+
+                data = df.tail(20).copy()
+                recent = data.tail(5)
+                last = data.iloc[-1]
+                resistance = float(recent["high"].max())
+                support = float(recent["low"].min())
+                close = float(last["close"])
+                avg_range = float((data["high"] - data["low"]).tail(10).mean())
+                expected_move = max(avg_range, abs(resistance - support) / 2)
+
+                level_rows.append({
+                    "name": name,
+                    "resistance": round(resistance, 2),
+                    "support": round(support, 2),
+                    "breakout": round(resistance + expected_move * 0.10, 2),
+                    "breakdown": round(support - expected_move * 0.10, 2),
+                    "expected_move": round(expected_move, 2),
+                    "close": round(close, 2),
+                })
+            except Exception as exc:
+                log.warning("Next day level calculation failed for %s: %s", symbol, exc)
+
+        await context.bot.send_message(
+            chat_id=self.settings.telegram_chat_id,
+            text=next_day_plan_message(level_rows, self.settings.vip_link),
+            parse_mode=ParseMode.HTML,
+            disable_web_page_preview=False,
+        )
+
     async def good_morning_job(self, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not is_weekday():
             return
@@ -776,6 +924,7 @@ class TradeManager:
         )
 
     async def scan_job(self, context: ContextTypes.DEFAULT_TYPE) -> None:
+        # Real market scanning only in windows. Mock mode allowed outside window for testing.
         if not in_market_window() and self.settings.broker != "mock":
             return
         if self.store.active(self.trades):
@@ -790,6 +939,8 @@ class TradeManager:
         analyzed_count = 0
         valid_setups: List[Tuple[Signal, pd.DataFrame]] = []
 
+        # First analyze many candidates, then choose the best scored setup.
+        # This prevents posting the first random-looking setup.
         for symbol, display_name in candidates:
             try:
                 df = await asyncio.to_thread(self.broker.history, symbol, "5", 5)
@@ -822,6 +973,7 @@ class TradeManager:
             valid_setups[0][0].score,
         )
 
+        # AI reviews best scored setups one by one. First approved setup is posted.
         for signal, df in valid_setups:
             try:
                 approved, ai_review = await asyncio.to_thread(self.ai_filter.review, signal, df)
@@ -881,6 +1033,7 @@ class TradeManager:
             trade.last_price = ltp
             trade.highest_price = max(trade.highest_price, ltp)
 
+            # 10-point space live updates as separate messages, not edits.
             profit_points = round(ltp - trade.entry, 2)
             if profit_points >= self.settings.point_update_step:
                 milestone_steps = math.floor(profit_points / self.settings.point_update_step)
@@ -894,6 +1047,7 @@ class TradeManager:
                     )
                     trade.last_update_price = milestone_price
 
+            # Target hit celebration with white chart.
             newly_hit_targets: List[int] = []
             for i, target in enumerate(trade.targets, start=1):
                 if ltp >= target and i not in trade.hit_targets:
@@ -976,34 +1130,94 @@ class TradeManager:
             self.store.save(self.trades)
 
 
+# =========================
+# APP START
+# =========================
+
 async def post_init(app: Application) -> None:
     manager: TradeManager = app.bot_data["manager"]
 
-    app.job_queue.run_daily(manager.good_morning_job, time=time(8, 0, tzinfo=IST), days=(0, 1, 2, 3, 4), name="good-morning")
-    app.job_queue.run_daily(manager.market_poll_job, time=time(8, 10, tzinfo=IST), days=(0, 1, 2, 3, 4), name="market-poll")
-    app.job_queue.run_daily(manager.ready_alert_job, time=time(9, 0, tzinfo=IST), days=(0, 1, 2, 3, 4), name="ready-alert")
+    app.job_queue.run_daily(
+        manager.good_morning_job,
+        time=time(8, 0, tzinfo=IST),
+        days=(0, 1, 2, 3, 4),
+        name="good-morning",
+    )
+    app.job_queue.run_daily(
+        manager.market_poll_job,
+        time=time(8, 10, tzinfo=IST),
+        days=(0, 1, 2, 3, 4),
+        name="market-poll",
+    )
+    app.job_queue.run_daily(
+        manager.ready_alert_job,
+        time=time(9, 0, tzinfo=IST),
+        days=(0, 1, 2, 3, 4),
+        name="ready-alert",
+    )
+    app.job_queue.run_daily(
+        manager.next_day_plan_job,
+        time=time(22, 0, tzinfo=IST),
+        days=(0, 1, 2, 3, 4, 6),
+        name="next-day-plan",
+    )
 
-    app.job_queue.run_repeating(manager.scan_job, interval=manager.settings.scan_interval_seconds, first=5, name="scanner")
-    app.job_queue.run_repeating(manager.trailing_job, interval=manager.settings.trail_interval_seconds, first=10, name="trailing")
+    app.job_queue.run_repeating(
+        manager.scan_job,
+        interval=manager.settings.scan_interval_seconds,
+        first=5,
+        name="scanner",
+    )
+    app.job_queue.run_repeating(
+        manager.trailing_job,
+        interval=manager.settings.trail_interval_seconds,
+        first=10,
+        name="trailing",
+    )
 
     log.info(
-        "Jobs scheduled: daily 08:00/08:10/09:00 IST, scan=%ss trail=%ss",
+        "Jobs scheduled: daily 08:00/08:10/09:00/22:00 IST, scan=%ss trail=%ss",
         manager.settings.scan_interval_seconds,
         manager.settings.trail_interval_seconds,
     )
 
 
-def main() -> None:
+async def run_service() -> None:
+    """
+    Outbound-only scheduler mode.
+
+    Why required:
+    This bot does not need incoming Telegram commands. It only sends scheduled
+    channel posts, trade updates, charts, and VIP promos. Therefore polling
+    getUpdates is unnecessary and can create 409 Conflict errors when another
+    Telegram bot instance accidentally uses the same token.
+    """
     settings = Settings()
     settings.validate()
     broker = make_broker(settings)
     manager = TradeManager(settings, broker)
 
-    app = ApplicationBuilder().token(settings.telegram_bot_token).post_init(post_init).build()
+    app = ApplicationBuilder().token(settings.telegram_bot_token).build()
     app.bot_data["manager"] = manager
 
+    await app.initialize()
+    await post_init(app)
+    await app.start()
+
     log.info("Starting Jiga Bhai Gujarati Trader automated trade manager bot")
-    app.run_polling(close_loop=False)
+    log.info("Bot is running in outbound-only scheduler mode. Polling/getUpdates is disabled.")
+
+    try:
+        while True:
+            await asyncio.sleep(3600)
+    finally:
+        log.info("Stopping bot service...")
+        await app.stop()
+        await app.shutdown()
+
+
+def main() -> None:
+    asyncio.run(run_service())
 
 
 if __name__ == "__main__":
